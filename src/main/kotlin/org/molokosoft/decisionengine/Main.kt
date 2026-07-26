@@ -86,11 +86,11 @@ fun main() {
             }
 
             register(RateLimitName("articles")) {
-                val limit = 1
+                val limit = 10
 
                 rateLimiter(
                     limit = limit,
-                    refillPeriod = 1.hours
+                    refillPeriod = 24.hours
                 )
 
                 modifyResponse { call, state ->
