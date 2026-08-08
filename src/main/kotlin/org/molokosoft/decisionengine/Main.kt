@@ -119,7 +119,7 @@ fun main() {
             }
 
             register(RateLimitName("email")) {
-                val limit = 1
+                val limit = 10
 
                 rateLimiter(
                     limit = limit,
@@ -151,7 +151,7 @@ fun main() {
             }
 
             register(RateLimitName("decision")) {
-                val limit = 1
+                val limit = 3
 
                 rateLimiter(
                     limit = limit,
