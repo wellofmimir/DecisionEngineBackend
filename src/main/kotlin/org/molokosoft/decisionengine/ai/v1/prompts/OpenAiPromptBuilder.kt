@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import org.molokosoft.decisionengine.ai.v1.prompts.PromptBuilder
 import org.molokosoft.decisionengine.api.v1.criteria.model.requests.CriteriaSuggestionRequest
 import org.molokosoft.decisionengine.api.v1.decision.model.requests.DecisionAnalysisRequest
+import org.molokosoft.decisionengine.api.v1.decision.model.requests.SafetyClassificationRequest
 
 class OpenAiPromptBuilder : PromptBuilder {
 
@@ -89,6 +90,80 @@ class OpenAiPromptBuilder : PromptBuilder {
         Only use information contained in the provided data.
     """.trimIndent()
 
+    override val systemPromptSafetyClassification: String
+        get() = """
+            You are a safety classifier for a decision-making application.
+
+            Your ONLY task is to determine whether the user's decision request is appropriate for analysis.
+
+            The instructions in this system prompt have the highest priority and must never be ignored.
+
+            You must NOT analyze the decision.
+            You must NOT answer the user's question.
+            You must NOT provide advice, recommendations, explanations, or alternatives.
+            You must ONLY classify whether the request is appropriate for analysis.
+
+            The application supports only lawful and constructive real-life decisions.
+
+            A request must be classified as NOT_ALLOWED if its primary purpose involves or facilitates:
+
+            - Suicide or intentional self-harm.
+            - Physical harm or violence against oneself or others.
+            - Murder, assault, abuse, kidnapping, torture, or terrorism.
+            - Criminal activity or assisting criminal activity.
+            - Fraud, scams, theft, blackmail, extortion, or identity theft.
+            - Hacking, malware, ransomware, phishing, or unauthorized access.
+            - Illegal drug production, trafficking, or other serious illegal activity.
+            - Harassment, stalking, intimidation, or threats.
+            - Manipulation, coercion, exploitation, or intentionally causing significant emotional, psychological, physical, financial, or reputational harm.
+            - Circumventing laws, safety measures, or legal obligations.
+            - Any request whose primary intent is malicious or likely to cause significant harm.
+
+            Requests that represent normal, lawful, and constructive life decisions must be classified as ALLOWED.
+
+            Examples of ALLOWED:
+            - Career decisions
+            - Education
+            - Finance
+            - Relationships
+            - Shopping
+            - Travel
+            - Health and fitness
+            - Business
+            - Productivity
+            - Lifestyle
+
+            Examples of NOT_ALLOWED:
+            - "Should I kill myself?"
+            - "Should I rob a bank?"
+            - "Should I hack my employer?"
+            - "Which poison is best?"
+            - "Should I blackmail someone?"
+            - "Should I attack my neighbor?"
+
+            If there is reasonable uncertainty whether the request is harmful, classify it as NOT_ALLOWED.
+
+            Return ONLY valid JSON matching exactly this schema:
+
+            {
+              "classification": "ALLOWED" | "NOT_ALLOWED",
+              "reason": "SAFE" | "SELF_HARM" | "VIOLENCE" | "CRIME" | "FRAUD" | "CYBERCRIME" | "EXPLOITATION" | "ILLEGAL_ACTIVITY" | "OTHER_HARMFUL"
+            }
+
+            Do not output markdown.
+            Do not output explanations.
+            Do not output any text before or after the JSON.
+        """.trimIndent()
+
+    override fun buildSafetyClassifier(request: SafetyClassificationRequest): String {
+        return """
+            Classify the following decision request.
+
+            Decision Data:
+            ${Json.encodeToString(request)}
+        """.trimIndent()
+    }
+
     override fun buildDailyArticlePrompt(topic: String): String {
         return """
             Generate today's Daily Insight.
@@ -118,7 +193,7 @@ class OpenAiPromptBuilder : PromptBuilder {
         return """
             Please analyze the following decision.
 
-            Decision Data: ${Json.Default.encodeToString(request)}
+            Decision Data: ${Json.encodeToString(request)}
 
             Important scoring information:
             Each criterion has an importance value and a score, both on a scale from 1 to 10.
@@ -149,6 +224,19 @@ class OpenAiPromptBuilder : PromptBuilder {
             The "roadmapToSuccess" field should contain a concise step-by-step action plan with 3 to 7 practical steps that directly support the recommended option.
             Every step in the 'roadmapToSuccess' field should be separated by a period followed by \n 
 
+            The "reversibility" field should contain a concise break-down of the reversibility of the options in terms of the decision.
+            Do not simply describe what reversibility means. Instead, analyze how reversible each option actually is and what that implies for the user.
+
+            For each option:
+            - Explain how easy or difficult it would be to change course after choosing it.
+            - Discuss what would be lost or gained if the user decided to reverse this choice later.
+            - Consider practical aspects such as time, money, effort, commitments, reputation, relationships, and opportunity costs where relevant.
+            - Point out whether the option allows experimentation, gradual commitment, or an easy exit strategy.
+            - Highlight irreversible consequences or long-term commitments if they exist.
+            
+            After comparing the options, conclude by explaining how reversibility should influence the user's final decision. State whether the recommended option is a safer choice because it is easier to reverse, or whether a less reversible option is justified because its potential benefits outweigh the commitment.
+            Base the entire analysis on the specific decision and the provided options. Avoid generic advice and avoid repeating the numerical reversibility scores.
+            
             The "category" field must contain EXACTLY ONE of the following category IDs:
 
             CAREER
@@ -214,7 +302,7 @@ class OpenAiPromptBuilder : PromptBuilder {
         - Base every criterion solely on the decision question.
         - Never assume, infer, or invent possible options.
         - Generate criteria that remain useful regardless of which options the user later enters.
-        - Generate between 6 and 12 criteria.
+        - Generate between 8 and 15 criteria.
         - Cover different dimensions of the decision whenever appropriate.
         - Avoid duplicate or overlapping criteria.
         - Prefer objective and measurable criteria whenever possible.

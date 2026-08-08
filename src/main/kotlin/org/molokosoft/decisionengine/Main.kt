@@ -28,6 +28,7 @@ import org.molokosoft.decisionengine.api.v1.health.getHealth
 import org.molokosoft.decisionengine.api.v1.model.ApiError
 import org.molokosoft.decisionengine.api.v1.model.ApiResponse
 import org.molokosoft.decisionengine.api.v1.criteria.criteriaRoutes
+import org.molokosoft.decisionengine.api.v1.quote.quoteRoutes
 import org.molokosoft.decisionengine.database.DatabaseFactory
 import org.molokosoft.decisionengine.exceptions.BadRequestException
 import org.molokosoft.decisionengine.jobs.EndOfTrialMailJob
@@ -76,6 +77,22 @@ fun main() {
         }
 
         install(RateLimit) {
+            register(RateLimitName("quotes")) {
+                val limit = 10
+
+                rateLimiter(
+                    limit = limit,
+                    refillPeriod = 24.hours
+                )
+
+                modifyResponse { call, state ->
+                    call.response.headers.append(
+                        "X-RateLimit-Limit",
+                        "$limit"
+                    )
+                }
+            }
+
             register(RateLimitName("feedback")) {
                 val limit = 1
 
@@ -258,7 +275,7 @@ fun main() {
         )
 
         scheduler.every(
-            24.minutes,
+            24.hours,
             DailyArticleJob(services.articlesRepository, services.articlesService)
         )
 
@@ -272,6 +289,7 @@ fun main() {
                 decisionRoutes(services.decisionService)
                 articleRoutes(services.articlesRepository)
                 feedbackRoutes(services.feedbackFileService)
+                quoteRoutes(services.quoteFileService)
 
                 authenticate(AuthenticationNames.API_KEY) {
                 }

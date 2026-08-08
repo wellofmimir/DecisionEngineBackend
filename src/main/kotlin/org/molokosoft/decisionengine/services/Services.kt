@@ -11,6 +11,7 @@ import org.molokosoft.decisionengine.repositories.users.UserRepository
 import org.molokosoft.decisionengine.services.articles.ArticlesService
 import org.molokosoft.decisionengine.services.email.clients.EMailClient
 import org.molokosoft.decisionengine.services.fileservices.FeedbackFileService
+import org.molokosoft.decisionengine.services.fileservices.QuoteFileService
 
 class Services {
     val aiClient = OpenAiClient(HttpClient.client)
@@ -25,4 +26,5 @@ class Services {
     val eMailService = EMailService(userRepository, eMailClient)
 
     val feedbackFileService = FeedbackFileService()
+    val quoteFileService = QuoteFileService()
 }
