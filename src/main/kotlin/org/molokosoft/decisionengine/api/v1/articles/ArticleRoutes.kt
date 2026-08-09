@@ -8,7 +8,6 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
 import io.ktor.server.routing.get
 import io.ktor.server.response.*
-import kotlinx.serialization.json.Json
 import org.molokosoft.decisionengine.api.v1.articles.model.dto.DailyArticle
 import org.molokosoft.decisionengine.api.v1.articles.model.responses.DailyArticleResponse
 import org.molokosoft.decisionengine.api.v1.model.ApiError
@@ -33,37 +32,35 @@ fun Route.articleRoutes(
 ) {
     route("/articles") {
         authenticate(AuthenticationNames.API_KEY) {
+            rateLimit(RateLimitName("articles")) {
+                get("/daily") {
+                    val dailyArticle = articlesRepository.dailyArticle()
 
-        }
+                    if (dailyArticle == null) {
+                        call.respond(
+                            status = HttpStatusCode.InternalServerError,
+                            message = ApiResponse(
+                                success = false,
+                                data = ApiError(
+                                    code = HttpStatusCode.InternalServerError.toString(),
+                                    message = "Internal server error."
+                                )
+                            )
+                        )
 
-        rateLimit(RateLimitName("articles")) {
-            get("/daily") {
-                val dailyArticle = articlesRepository.dailyArticle()
+                        return@get
+                    }
 
-                if (dailyArticle == null) {
                     call.respond(
-                        status = HttpStatusCode.InternalServerError,
+                        status = HttpStatusCode.OK,
                         message = ApiResponse(
-                            success = false,
-                            data = ApiError(
-                                code = HttpStatusCode.InternalServerError.toString(),
-                                message = "Internal server error."
+                            success = true,
+                            data = DailyArticleResponse(
+                                dailyArticle = dailyArticle.toDTO()
                             )
                         )
                     )
-
-                    return@get
                 }
-
-                call.respond(
-                    status = HttpStatusCode.OK,
-                    message = ApiResponse(
-                        success = true,
-                        data = DailyArticleResponse(
-                            dailyArticle = dailyArticle.toDTO()
-                        )
-                    )
-                )
             }
         }
     }

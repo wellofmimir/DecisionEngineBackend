@@ -183,7 +183,7 @@ fun main() {
             }
 
             register(RateLimitName("billing")) {
-                val limit = 1
+                val limit = 10
 
                 rateLimiter(
                     limit = limit,
@@ -284,15 +284,12 @@ fun main() {
 
             route("/api/v1/") {
                 billingRoutes(services.userRepository)
-                criteriaRoutes(services.criteriaService)
                 emailRoutes(services.eMailService)
                 decisionRoutes(services.decisionService)
                 articleRoutes(services.articlesRepository)
                 feedbackRoutes(services.feedbackFileService)
                 quoteRoutes(services.quoteFileService)
-
-                authenticate(AuthenticationNames.API_KEY) {
-                }
+                criteriaRoutes(services.criteriaService)
             }
         }
 

@@ -14,7 +14,6 @@ import org.molokosoft.decisionengine.api.v1.billing.model.responses.VerifyPurcha
 import org.molokosoft.decisionengine.api.v1.model.ApiResponse
 import org.molokosoft.decisionengine.authentication.ApiKeyGenerator
 import org.molokosoft.decisionengine.authentication.ApiKeyHasher
-import org.molokosoft.decisionengine.authentication.AuthenticationNames
 import org.molokosoft.decisionengine.extensions.receiveValidated
 import org.molokosoft.decisionengine.repositories.users.UserRepository
 
@@ -27,10 +26,6 @@ fun Route.billingRoutes(
     userRepository: UserRepository
 ) {
     route("/billing") {
-        authenticate(AuthenticationNames.API_KEY) {
-
-        }
-
         rateLimit(RateLimitName("billing")) {
             post("/verify") {
                 val request = call.receiveValidated<VerifyPurchaseRequest>()
@@ -43,6 +38,7 @@ fun Route.billingRoutes(
 
                 val expiresAt = (Clock.System.now() + 3.days).toEpochMilliseconds()
                 userRepository.insertApiKey(apiKeyHash, request.purchaseToken, 100, expiresAt)
+                userRepository.activateApiKey(apiKeyHash)
 
                 call.respond(
                     status = HttpStatusCode.OK,

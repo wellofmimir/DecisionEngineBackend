@@ -19,36 +19,34 @@ fun Route.quoteRoutes(
 ) {
     route("/quotes") {
         authenticate(AuthenticationNames.API_KEY) {
-
-        }
-
-        rateLimit(RateLimitName("quotes")) {
-            get("/daily") {
-                val quoteFile = quoteFileService.getRandomQuoteFile()
-                    .getOrElse {
-                        call.respond(
-                            status = HttpStatusCode.InternalServerError,
-                            message = ApiResponse(
-                                success = false,
-                                data = ApiError(
-                                    code = HttpStatusCode.InternalServerError.toString(),
-                                    message = "Internal server error."
+            rateLimit(RateLimitName("quotes")) {
+                get("/daily") {
+                    val quoteFile = quoteFileService.getRandomQuoteFile()
+                        .getOrElse {
+                            call.respond(
+                                status = HttpStatusCode.InternalServerError,
+                                message = ApiResponse(
+                                    success = false,
+                                    data = ApiError(
+                                        code = HttpStatusCode.InternalServerError.toString(),
+                                        message = "Internal server error."
+                                    )
                                 )
                             )
-                        )
 
-                        return@get
-                    }
+                            return@get
+                        }
 
-                call.respond(
-                    status = HttpStatusCode.OK,
-                    message = ApiResponse(
-                        success = true,
-                        data = QuoteResponse(
-                            quote = quoteFile
+                    call.respond(
+                        status = HttpStatusCode.OK,
+                        message = ApiResponse(
+                            success = true,
+                            data = QuoteResponse(
+                                quote = quoteFile
+                            )
                         )
                     )
-                )
+                }
             }
         }
     }
