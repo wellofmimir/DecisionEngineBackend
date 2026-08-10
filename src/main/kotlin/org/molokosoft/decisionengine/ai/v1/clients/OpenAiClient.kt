@@ -19,7 +19,7 @@ class OpenAiClient(
     private val client: OkHttpClient
 ) : AiClient {
 
-    private suspend fun createOpenAiRequestBody(
+    private fun createOpenAiRequestBody(
          systemPrompt: String,
          prompt: String,
          temperature: Double
@@ -70,17 +70,13 @@ class OpenAiClient(
             .post(requestBody)
             .build()
 
-        val start = System.currentTimeMillis()
-
         try {
             client.newCall(request).execute().use { response ->
 
-                val duration = System.currentTimeMillis() - start
                 val responseBody = response.body?.string() ?: ""
 
-                if (!response.isSuccessful) {
+                if (!response.isSuccessful)
                     return@withContext null
-                }
 
                 val responseJson = JSONObject(responseBody)
 
@@ -92,7 +88,6 @@ class OpenAiClient(
             }
 
         } catch (e: Exception) {
-            val duration = System.currentTimeMillis() - start
             return@withContext null
         }
     }

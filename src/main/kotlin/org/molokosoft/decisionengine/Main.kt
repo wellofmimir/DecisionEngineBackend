@@ -1,5 +1,7 @@
 package org.molokosoft.decisionengine
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
 import io.ktor.server.application.*
@@ -14,11 +16,17 @@ import io.ktor.server.routing.routing
 import io.ktor.server.routing.route
 import io.ktor.server.plugins.calllogging.*
 import io.ktor.server.auth.Authentication
-import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.jwt.jwt
 import io.ktor.server.auth.bearer
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.uri
 import org.molokosoft.decisionengine.api.v1.articles.articleRoutes
+import com.auth0.jwk.JwkProvider
+import com.auth0.jwk.JwkProviderBuilder
+import io.ktor.server.auth.jwt.JWTPrincipal
+import java.net.URL
+import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.Json
 
 import org.slf4j.event.Level
 
@@ -42,7 +50,6 @@ import org.molokosoft.decisionengine.authentication.principals.ApiKeyPrincipal
 import org.molokosoft.decisionengine.jobs.DailyArticleJob
 
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 fun main() {
@@ -52,6 +59,20 @@ fun main() {
 
         val services = Services()
         val scheduler = Scheduler()
+
+        val rtdnAudience = System.getenv("RTDN_AUDIENCE")
+            ?: error("RTDN_AUDIENCE environment variable is not set")
+
+        val rtdnServiceAccountEmail = System.getenv("RTDN_SERVICE_ACCOUNT_EMAIL")
+            ?: error("RTDN_SERVICE_ACCOUNT_EMAIL environment variable is not set")
+
+        val jwkProvider: JwkProvider =
+            JwkProviderBuilder(
+                URL("https://www.googleapis.com/oauth2/v3/certs")
+            )
+                .cached(10, 24, TimeUnit.HOURS)
+                .rateLimited(10, 1, TimeUnit.MINUTES)
+                .build()
 
         install(Authentication) {
             bearer(AuthenticationNames.API_KEY) {
@@ -70,10 +91,43 @@ fun main() {
                     ApiKeyPrincipal(apiKeyEntry.id)
                 }
             }
+
+            jwt(AuthenticationNames.RTDN) {
+                realm = "DecisionEngine RTDN"
+
+                verifier(
+                    jwkProvider,
+                    issuer = "https://accounts.google.com"
+                )
+
+                validate { credential ->
+                    val audienceValid =
+                        credential.payload
+                            .audience
+                            .contains(rtdnAudience)
+
+                    if (!audienceValid)
+                        return@validate null
+
+                    val email =
+                        credential.payload
+                            .getClaim("email")
+                            .asString()
+
+                    if (email != rtdnServiceAccountEmail)
+                        return@validate null
+
+                    JWTPrincipal(credential.payload)
+                }
+            }
         }
 
         install(ContentNegotiation) {
-            json()
+            json(
+                Json {
+                    ignoreUnknownKeys = true
+                }
+            )
         }
 
         install(RateLimit) {

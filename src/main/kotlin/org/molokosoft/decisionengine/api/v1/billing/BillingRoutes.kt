@@ -1,13 +1,14 @@
 package org.molokosoft.decisionengine.api.v1.billing
 
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import org.molokosoft.decisionengine.api.v1.billing.model.requests.PubSubPushRequest
 
 import org.molokosoft.decisionengine.api.v1.billing.model.requests.VerifyPurchaseRequest
 import org.molokosoft.decisionengine.api.v1.billing.model.responses.VerifyPurchaseResponse
@@ -16,6 +17,7 @@ import org.molokosoft.decisionengine.authentication.ApiKeyGenerator
 import org.molokosoft.decisionengine.authentication.ApiKeyHasher
 import org.molokosoft.decisionengine.extensions.receiveValidated
 import org.molokosoft.decisionengine.repositories.users.UserRepository
+import java.util.Base64
 
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -50,6 +52,21 @@ fun Route.billingRoutes(
                     )
                 )
             }
+        }
+
+        post("/rtdn") {
+            val request = call.receive<PubSubPushRequest>()
+            println("Received Pub/Sub message: ${request.message.messageId}")
+
+            val decodedData =
+                Base64
+                    .getDecoder()
+                    .decode(request.message.data)
+                    .toString(Charsets.UTF_8)
+
+            println("Decoded data: $decodedData")
+
+            call.respond(HttpStatusCode.OK)
         }
     }
 }
