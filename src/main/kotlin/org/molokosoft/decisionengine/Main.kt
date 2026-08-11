@@ -60,6 +60,9 @@ fun main() {
         val services = Services()
         val scheduler = Scheduler()
 
+        System.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            ?: error("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set")
+
         val rtdnAudience = System.getenv("RTDN_AUDIENCE")
             ?: error("RTDN_AUDIENCE environment variable is not set")
 
@@ -101,21 +104,25 @@ fun main() {
                 )
 
                 validate { credential ->
-                    val audienceValid =
-                        credential.payload
-                            .audience
-                            .contains(rtdnAudience)
-
-                    if (!audienceValid)
-                        return@validate null
 
                     val email =
                         credential.payload
                             .getClaim("email")
                             .asString()
 
-                    if (email != rtdnServiceAccountEmail)
+                    val audience =
+                        credential.payload
+                            .audience
+
+                    if (email != rtdnServiceAccountEmail) {
+                        println("RTDN rejected: invalid email")
                         return@validate null
+                    }
+
+                    if (!audience.contains(rtdnAudience)) {
+                        println("RTDN rejected: invalid audience")
+                        return@validate null
+                    }
 
                     JWTPrincipal(credential.payload)
                 }
@@ -337,7 +344,11 @@ fun main() {
             getHealth()
 
             route("/api/v1/") {
-                billingRoutes(services.userRepository)
+                billingRoutes(
+                    services.userRepository,
+                    services.googlePlayService
+                )
+
                 emailRoutes(services.eMailService)
                 decisionRoutes(services.decisionService)
                 articleRoutes(services.articlesRepository)

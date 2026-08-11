@@ -9,6 +9,7 @@ import org.molokosoft.decisionengine.services.decision.DecisionService
 import org.molokosoft.decisionengine.services.email.EMailService
 import org.molokosoft.decisionengine.repositories.users.UserRepository
 import org.molokosoft.decisionengine.services.articles.ArticlesService
+import org.molokosoft.decisionengine.services.billing.GooglePlayService
 import org.molokosoft.decisionengine.services.email.clients.EMailClient
 import org.molokosoft.decisionengine.services.fileservices.FeedbackFileService
 import org.molokosoft.decisionengine.services.fileservices.QuoteFileService
@@ -27,4 +28,6 @@ class Services {
 
     val feedbackFileService = FeedbackFileService()
     val quoteFileService = QuoteFileService()
+
+    val googlePlayService = GooglePlayService(HttpClient.client)
 }

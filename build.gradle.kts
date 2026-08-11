@@ -45,6 +45,8 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.50.3.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
+
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.49.0")
 }
 
 kotlin {
