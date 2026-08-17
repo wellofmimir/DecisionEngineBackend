@@ -1,29 +1,31 @@
-package org.molokosoft.decisionengine.api.v1.criteria
+package org.molokosoft.decisionengine.api.v1.security
 
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.plugins.ratelimit.RateLimit
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
-import io.ktor.server.response.respond
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.post
-import io.ktor.server.routing.route
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 
-import org.molokosoft.decisionengine.api.v1.criteria.model.requests.CriteriaSuggestionRequest
-import org.molokosoft.decisionengine.api.v1.criteria.model.responses.CriteriaSuggestionResponse
 import org.molokosoft.decisionengine.api.v1.model.ApiError
 import org.molokosoft.decisionengine.api.v1.model.ApiResponse
+import org.molokosoft.decisionengine.api.v1.security.model.requests.PromptReconnaissanceRequest
+import org.molokosoft.decisionengine.api.v1.security.model.responses.PromptReconnaissanceResponse
 import org.molokosoft.decisionengine.extensions.receiveValidated
-import org.molokosoft.decisionengine.extensions.requireInstallationId
-import org.molokosoft.decisionengine.services.criteria.CriteriaService
+import org.molokosoft.decisionengine.services.security.SecurityService
 
-fun Route.criteriaRoutes(
-    criteriaService: CriteriaService
+fun Route.securityRoutes(
+    securityService: SecurityService
 ) {
-    route("/criteria") {
-        rateLimit(RateLimitName("criteria")) {
-            post("/suggest") {
-                val request = call.receiveValidated<CriteriaSuggestionRequest>()
-                val result = criteriaService.suggest(request)
+   route("/security") {
+       rateLimit(RateLimitName("promptReconnaissance")) {
+            post("/promptReconnaissance") {
+
+                val request =
+                    call.receiveValidated<PromptReconnaissanceRequest>()
+
+                val result =
+                    securityService.promptReconnaissance(request)
 
                 if (result == null) {
                     call.respond(
@@ -44,12 +46,12 @@ fun Route.criteriaRoutes(
                     status = HttpStatusCode.OK,
                     message = ApiResponse(
                         success = true,
-                        data = CriteriaSuggestionResponse(
-                            criteria = result
+                        data = PromptReconnaissanceResponse(
+                            result = result
                         )
                     )
                 )
             }
-        }
-    }
+       }
+   }
 }

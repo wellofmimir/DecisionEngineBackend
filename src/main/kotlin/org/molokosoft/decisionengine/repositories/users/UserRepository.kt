@@ -1,9 +1,11 @@
 package org.molokosoft.decisionengine.repositories.users
 
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.molokosoft.decisionengine.database.tables.apikeys.ApiKey
 import org.molokosoft.decisionengine.database.tables.apikeys.ApiKeys
+import org.molokosoft.decisionengine.database.tables.purchases.Purchases
 import org.molokosoft.decisionengine.database.tables.users.User
 import org.molokosoft.decisionengine.database.tables.users.Users
 
@@ -40,6 +42,32 @@ class UserRepository {
             }
     }
 
+    fun addUsages(
+        usages: Int,
+        apiKeyHash: String
+    ) {
+        ApiKeys
+            .update(
+                where = {
+                    ApiKeys.apiKeyHash eq apiKeyHash
+                }
+            ) {
+                with (SqlExpressionBuilder) {
+                    it[remainingUsages] = remainingUsages + usages
+                }
+            }
+    }
+
+    fun purchaseExists(purchaseToken: String): Boolean = transaction {
+        Purchases
+            .selectAll()
+            .where {
+                Purchases.purchaseToken eq purchaseToken
+            }
+            .limit(1)
+            .any()
+    }
+
     fun updateUser(eMail: String) = transaction {
         Users.update(
             where = {
@@ -67,23 +95,25 @@ class UserRepository {
     }
 
     @OptIn(ExperimentalTime::class)
-    fun insertApiKey(apiKeyHash: String, purchaseToken: String, usages: Int, expiresAt: Long) = transaction {
+    fun insertApiKey(apiKeyHash: String, purchaseToken: String, usages: Int, expiresAt: Long?) = transaction {
         ApiKeys.insert {
             it[ApiKeys.apiKeyHash] = apiKeyHash
-            it[ApiKeys.purchaseToken] = purchaseToken
             it[ApiKeys.remainingUsages] = usages
             it[ApiKeys.isActive] = false
             it[ApiKeys.expiresAt] = expiresAt
         }
-    }
 
-    fun updateApiKeyUsages(apiKeyHash: String, usages: Int) = transaction {
-        ApiKeys.update (
-            where = {
-                ApiKeys.apiKeyHash eq apiKeyHash
-            }
-        ) {
-            it[remainingUsages] = usages
+        val apiKeyId =
+            ApiKeys
+                .selectAll()
+                .where {
+                    ApiKeys.apiKeyHash eq apiKeyHash
+                }
+                .single()[ApiKeys.id]
+
+        Purchases.insert {
+            it[Purchases.purchaseToken] = purchaseToken
+            it[Purchases.apiKeyId] = apiKeyId
         }
     }
 
@@ -95,6 +125,14 @@ class UserRepository {
         ) {
             it[ApiKeys.isActive] = true
         }
+    }
+
+    fun insertPurchaseToken(purchaseToken: String, apiKeyId: Int) = transaction {
+        Purchases
+            .insert {
+                it[Purchases.purchaseToken] = purchaseToken
+                it[Purchases.apiKeyId] = apiKeyId
+            }
     }
 
     fun deactivateApiKey(apiKeyHash: String) = transaction {

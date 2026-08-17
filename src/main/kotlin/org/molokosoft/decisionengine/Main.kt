@@ -1,7 +1,5 @@
 package org.molokosoft.decisionengine
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.JsonConvertException
 import io.ktor.server.application.*
@@ -44,13 +42,17 @@ import org.molokosoft.decisionengine.scheduler.Scheduler
 import org.molokosoft.decisionengine.services.Services
 import org.molokosoft.decisionengine.api.v1.billing.billingRoutes
 import org.molokosoft.decisionengine.api.v1.feedback.feedbackRoutes
+import org.molokosoft.decisionengine.api.v1.security.securityRoutes
 import org.molokosoft.decisionengine.authentication.ApiKeyHasher
 import org.molokosoft.decisionengine.authentication.AuthenticationNames
 import org.molokosoft.decisionengine.authentication.principals.ApiKeyPrincipal
 import org.molokosoft.decisionengine.jobs.DailyArticleJob
+import org.molokosoft.decisionengine.extensions.*
 
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+
 
 fun main() {
     embeddedServer(Netty, 45003) {
@@ -138,6 +140,22 @@ fun main() {
         }
 
         install(RateLimit) {
+            register(RateLimitName("promptReconnaissance")) {
+                val limit = 20
+
+                rateLimiter(
+                    limit = limit,
+                    refillPeriod = 60.seconds
+                )
+
+                modifyResponse { call, state ->
+                    call.response.headers.append(
+                        "X-RateLimit-Limit",
+                        "$limit"
+                    )
+                }
+            }
+
             register(RateLimitName("quotes")) {
                 val limit = 10
 
@@ -227,8 +245,32 @@ fun main() {
                 }
             }
 
+            register(RateLimitName("safetyClassification")) {
+                val limit = 20
+
+                requestKey { call ->
+                    call.requireInstallationId()
+                }
+
+                rateLimiter(
+                    limit = limit,
+                    refillPeriod = 60.seconds
+                )
+
+                modifyResponse { call, state ->
+                    call.response.headers.append(
+                        "X-RateLimit-Limit",
+                        "$limit"
+                    )
+                }
+            }
+
             register(RateLimitName("criteria")) {
                 val limit = 3
+
+                requestKey { call ->
+                    call.requireInstallationId()
+                }
 
                 rateLimiter(
                     limit = limit,
@@ -248,7 +290,7 @@ fun main() {
 
                 rateLimiter(
                     limit = limit,
-                    refillPeriod = 1.hours
+                    refillPeriod = 1.minutes
                 )
 
                 modifyResponse { call, state ->
@@ -355,6 +397,7 @@ fun main() {
                 feedbackRoutes(services.feedbackFileService)
                 quoteRoutes(services.quoteFileService)
                 criteriaRoutes(services.criteriaService)
+                securityRoutes(services.securityService)
             }
         }
 

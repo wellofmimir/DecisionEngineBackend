@@ -54,10 +54,15 @@ fun Route.decisionRoutes(
                     )
                 }
             }
+        }
 
+        rateLimit(RateLimitName("safetyClassification")) {
             post("/safetyClassification") {
                 val request = call.receiveValidated<SafetyClassificationRequest>()
                 val result = decisionService.safetyClassification(request)
+
+                println(result?.reason.toString())
+                println(result?.classification.toString())
 
                 if (result == null) {
                     call.respond(

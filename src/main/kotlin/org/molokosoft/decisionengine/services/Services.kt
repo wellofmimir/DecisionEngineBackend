@@ -13,17 +13,20 @@ import org.molokosoft.decisionengine.services.billing.GooglePlayService
 import org.molokosoft.decisionengine.services.email.clients.EMailClient
 import org.molokosoft.decisionengine.services.fileservices.FeedbackFileService
 import org.molokosoft.decisionengine.services.fileservices.QuoteFileService
+import org.molokosoft.decisionengine.services.security.SecurityService
 
 class Services {
     val aiClient = OpenAiClient(HttpClient.client)
+    val eMailClient = EMailClient(HttpClient.client)
     val promptBuilder = OpenAiPromptBuilder()
+
+    val articlesRepository = ArticlesRepository()
+    val userRepository = UserRepository()
+
     val decisionService = DecisionService(aiClient, promptBuilder)
     val criteriaService = CriteriaService(aiClient, promptBuilder)
-    val articlesRepository = ArticlesRepository()
+    val securityService = SecurityService(aiClient, promptBuilder)
     val articlesService = ArticlesService(aiClient, promptBuilder)
-
-    val userRepository = UserRepository()
-    val eMailClient = EMailClient(HttpClient.client)
     val eMailService = EMailService(userRepository, eMailClient)
 
     val feedbackFileService = FeedbackFileService()

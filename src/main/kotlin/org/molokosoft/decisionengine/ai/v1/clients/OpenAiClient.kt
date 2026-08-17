@@ -14,6 +14,7 @@ import org.molokosoft.decisionengine.api.v1.articles.model.dto.DailyArticle
 import org.molokosoft.decisionengine.api.v1.criteria.model.dto.CriterionSuggestion
 import org.molokosoft.decisionengine.api.v1.decision.model.dto.DecisionAnalysisResult
 import org.molokosoft.decisionengine.api.v1.decision.model.dto.SafetyClassification
+import org.molokosoft.decisionengine.api.v1.security.model.dto.PromptReconnaissanceResult
 
 class OpenAiClient(
     private val client: OkHttpClient
@@ -22,7 +23,8 @@ class OpenAiClient(
     private fun createOpenAiRequestBody(
          systemPrompt: String,
          prompt: String,
-         temperature: Double
+         temperature: Double,
+         model: String,
     ): RequestBody {
         val mediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -42,7 +44,7 @@ class OpenAiClient(
         }
 
         val jsonRequestBody = JSONObject().apply {
-            put("model", "gpt-4.1-mini")
+            put("model", model)
             put("messages", promptsArray)
             put("temperature", temperature)
 
@@ -54,14 +56,17 @@ class OpenAiClient(
     private suspend fun requestOpenAi(
         systemPrompt: String,
         prompt: String,
-        temperature: Double
+        temperature: Double,
+        model: String
     ): String? = withContext(Dispatchers.IO) {
 
-        val requestBody = createOpenAiRequestBody(
-            systemPrompt = systemPrompt,
-            prompt = prompt,
-            temperature = temperature
-        )
+        val requestBody =
+            createOpenAiRequestBody(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = temperature,
+                model = model
+            )
 
         val request = Request.Builder()
             .url("https://api.openai.com/v1/chat/completions")
@@ -94,11 +99,13 @@ class OpenAiClient(
 
     override suspend fun analyze(systemPrompt: String, prompt: String): DecisionAnalysisResult? {
 
-        val content = requestOpenAi(
-            systemPrompt = systemPrompt,
-            prompt = prompt,
-            temperature = 0.2,
-        ) ?: return null
+        val content =
+            requestOpenAi(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = 0.2,
+                model = "gpt-5.4"
+            ) ?: return null
 
         return try {
             Json.decodeFromString<DecisionAnalysisResult>(content)
@@ -111,11 +118,13 @@ class OpenAiClient(
 
     override suspend fun suggest(systemPrompt: String, prompt: String): List<CriterionSuggestion>? {
 
-        val content = requestOpenAi(
-            systemPrompt = systemPrompt,
-            prompt = prompt,
-            temperature = 0.2,
-        ) ?: return null
+        val content =
+            requestOpenAi(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = 0.2,
+                model = "gpt-5.4-mini"
+            ) ?: return null
 
         return try {
             Json.decodeFromString<List<CriterionSuggestion>>(content)
@@ -127,11 +136,13 @@ class OpenAiClient(
 
     override suspend fun dailyArticle(systemPrompt: String, prompt: String): DailyArticle? {
 
-        val content = requestOpenAi(
-            systemPrompt = systemPrompt,
-            prompt = prompt,
-            temperature = 0.2,
-        ) ?: return null
+        val content =
+            requestOpenAi(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = 0.2,
+                model = "gpt-5.4"
+            ) ?: return null
 
         return try {
             Json.decodeFromString<DailyArticle>(content)
@@ -144,14 +155,35 @@ class OpenAiClient(
 
     override suspend fun safetyClassification(systemPrompt: String, prompt: String): SafetyClassification? {
 
-        val content = requestOpenAi(
-            systemPrompt = systemPrompt,
-            prompt = prompt,
-            temperature = 0.2,
-        ) ?: return null
+        val content =
+            requestOpenAi(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = 0.2,
+                model = "gpt-5.4-nano"
+            ) ?: return null
 
         return try {
             Json.decodeFromString<SafetyClassification>(content)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    override suspend fun promptReconnaissance(systemPrompt: String, prompt: String): PromptReconnaissanceResult? {
+
+        val content =
+            requestOpenAi(
+                systemPrompt = systemPrompt,
+                prompt = prompt,
+                temperature = 0.2,
+                model = "gpt-5.4-nano"
+            ) ?: return null
+
+        return try {
+            Json.decodeFromString<PromptReconnaissanceResult>(content)
 
         } catch (e: Exception) {
             e.printStackTrace()
