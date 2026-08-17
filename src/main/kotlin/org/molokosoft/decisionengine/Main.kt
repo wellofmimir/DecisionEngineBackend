@@ -87,13 +87,13 @@ fun main() {
 
                     val apiKey = tokenCredential.token
                     val apiKeyHash = ApiKeyHasher.sha256(apiKey)
-                    val apiKeyEntry = services.userRepository.findApiKeyHash(apiKeyHash) ?:
+                    val apiKeyEntry = services.userRepository.findApiKey(apiKeyHash) ?:
                         return@authenticate null
 
                     if (!apiKeyEntry.isActive)
                         return@authenticate null
 
-                    ApiKeyPrincipal(apiKeyEntry.id)
+                    ApiKeyPrincipal(apiKeyEntry.id, apiKeyHash)
                 }
             }
 
@@ -386,13 +386,18 @@ fun main() {
             getHealth()
 
             route("/api/v1/") {
+
+                decisionRoutes(
+                    services.decisionService,
+                    services.userRepository
+                )
+
                 billingRoutes(
                     services.userRepository,
                     services.googlePlayService
                 )
 
                 emailRoutes(services.eMailService)
-                decisionRoutes(services.decisionService)
                 articleRoutes(services.articlesRepository)
                 feedbackRoutes(services.feedbackFileService)
                 quoteRoutes(services.quoteFileService)

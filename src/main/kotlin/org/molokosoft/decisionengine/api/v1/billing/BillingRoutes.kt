@@ -68,7 +68,7 @@ fun Route.billingRoutes(
                     ApiKeyHasher.sha256(apiKey)
 
                 val existingApiKey =
-                    userRepository.findApiKeyHash(apiKeyHash)
+                    userRepository.findApiKey(apiKeyHash)
 
                 if (existingApiKey == null || !existingApiKey.isActive) {
                     call.respond(
@@ -91,7 +91,7 @@ fun Route.billingRoutes(
                         success = true,
                         data = AccessStatusResponse(
                             accessStatus = AccessStatus(
-                                existingApiKey.remainingUsages
+                                existingApiKey.subscriptionUsages + existingApiKey.consumableUsages
                             )
                         )
                     )
@@ -204,7 +204,8 @@ fun Route.billingRoutes(
                             val apiKeyHash =
                                 ApiKeyHasher.sha256(apiKey)
 
-                            userRepository.insertApiKey(apiKeyHash, request.purchaseToken, product.usageLimit, null)
+                            userRepository.insertApiKey(apiKeyHash, request.purchaseToken, null)
+                            userRepository.addConsumableUsages(product.usageLimit, apiKeyHash)
                             userRepository.activateApiKey(apiKeyHash)
 
                             call.respond(
@@ -225,7 +226,7 @@ fun Route.billingRoutes(
                                 ApiKeyHasher.sha256(request.apiKey)
 
                             val existingApiKey =
-                                userRepository.findApiKeyHash(apiKeyHash)
+                                userRepository.findApiKey(apiKeyHash)
 
                             if (existingApiKey == null) {
                                 call.respond(
@@ -242,7 +243,7 @@ fun Route.billingRoutes(
                                 return@post
                             }
 
-                            userRepository.addUsages(
+                            userRepository.addConsumableUsages(
                                 usages = product.usageLimit,
                                 apiKeyHash = existingApiKey.apiKeyHash
                             )
@@ -339,7 +340,8 @@ fun Route.billingRoutes(
                         val apiKeyHash =
                             ApiKeyHasher.sha256(apiKey)
 
-                        userRepository.insertApiKey(apiKeyHash, request.purchaseToken, product.usageLimit, expiresAt)
+                        userRepository.insertApiKey(apiKeyHash, request.purchaseToken, expiresAt)
+                        userRepository.addSubscriptionUsages(product.usageLimit, apiKeyHash)
                         userRepository.activateApiKey(apiKeyHash)
 
                         call.respond(

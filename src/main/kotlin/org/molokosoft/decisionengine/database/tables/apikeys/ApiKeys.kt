@@ -6,7 +6,8 @@ object ApiKeys : Table("ApiKeys") {
 
     val id = integer("id").autoIncrement()
     val apiKeyHash = varchar("apiKeyHash", 64).uniqueIndex()
-    val remainingUsages = integer("remainingUsages")
+    val subscriptionsUsages = integer("subscriptionUsages")
+    val consumableUsages = integer("consumableUsages")
     val expiresAt = long("expiresAt").nullable()
     val isActive = bool("isActive")
 

@@ -1,6 +1,5 @@
 package org.molokosoft.decisionengine.repositories.users
 
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.molokosoft.decisionengine.database.tables.apikeys.ApiKey
@@ -12,12 +11,15 @@ import org.molokosoft.decisionengine.database.tables.users.Users
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
+enum class ConsumedUsage {
+    Subscription,
+    Consumable
+}
+
 class UserRepository {
 
     @OptIn(ExperimentalTime::class)
     fun create(eMail: String): Int = transaction {
-        val now = Clock.System.now()
-
         val insert = Users.insert {
             it[Users.eMail] = eMail
             it[trialStarted] = Clock.System.now().toEpochMilliseconds()
@@ -42,7 +44,59 @@ class UserRepository {
             }
     }
 
-    fun addUsages(
+    fun restoreUsage(apiKeyHash: String, usage: ConsumedUsage) {
+        when (usage) {
+            ConsumedUsage.Consumable ->
+                addConsumableUsages(1, apiKeyHash)
+
+            ConsumedUsage.Subscription ->
+                addSubscriptionUsages(1, apiKeyHash)
+        }
+    }
+
+    fun consumeUsage(apiKeyHash: String): ConsumedUsage? {
+        if (decrementSubscriptionUsages(apiKeyHash))
+            return ConsumedUsage.Subscription
+
+        if (decrementConsumableUsages(apiKeyHash))
+            return ConsumedUsage.Consumable
+
+        return null
+    }
+
+    private fun decrementSubscriptionUsages(apiKeyHash: String): Boolean {
+        val updatedRows =
+            ApiKeys
+                .update(
+                  where = {
+                      (ApiKeys.apiKeyHash eq apiKeyHash) and (ApiKeys.subscriptionsUsages greater 0)
+                  }
+               ) {
+                  with (SqlExpressionBuilder) {
+                      it[subscriptionsUsages] = subscriptionsUsages - 1
+                  }
+              }
+
+        return updatedRows == 1
+    }
+
+    private fun decrementConsumableUsages(apiKeyHash: String): Boolean {
+        val updatedRows =
+            ApiKeys
+                .update(
+                    where = {
+                      (ApiKeys.apiKeyHash eq apiKeyHash) and (ApiKeys.consumableUsages greater 0)
+                    }
+                ) {
+                    with (SqlExpressionBuilder) {
+                        it[consumableUsages] = consumableUsages - 1
+                    }
+                }
+
+        return updatedRows == 1
+    }
+
+    fun addSubscriptionUsages(
         usages: Int,
         apiKeyHash: String
     ) {
@@ -53,7 +107,23 @@ class UserRepository {
                 }
             ) {
                 with (SqlExpressionBuilder) {
-                    it[remainingUsages] = remainingUsages + usages
+                    it[subscriptionsUsages] = subscriptionsUsages + usages
+                }
+            }
+    }
+
+    fun addConsumableUsages(
+        usages: Int,
+        apiKeyHash: String
+    ) {
+        ApiKeys
+            .update(
+                where = {
+                    ApiKeys.apiKeyHash eq apiKeyHash
+                }
+            ) {
+                with (SqlExpressionBuilder) {
+                    it[consumableUsages] = consumableUsages + usages
                 }
             }
     }
@@ -78,7 +148,7 @@ class UserRepository {
         }
     }
 
-    fun findApiKeyHash(apiKeyHash: String): ApiKey? = transaction {
+    fun findApiKey(apiKeyHash: String): ApiKey? = transaction {
         ApiKeys
             .selectAll()
             .where {
@@ -95,10 +165,11 @@ class UserRepository {
     }
 
     @OptIn(ExperimentalTime::class)
-    fun insertApiKey(apiKeyHash: String, purchaseToken: String, usages: Int, expiresAt: Long?) = transaction {
+    fun insertApiKey(apiKeyHash: String, purchaseToken: String, expiresAt: Long?) = transaction {
         ApiKeys.insert {
             it[ApiKeys.apiKeyHash] = apiKeyHash
-            it[ApiKeys.remainingUsages] = usages
+            it[ApiKeys.subscriptionsUsages] = 0
+            it[ApiKeys.consumableUsages] = 0
             it[ApiKeys.isActive] = false
             it[ApiKeys.expiresAt] = expiresAt
         }
@@ -164,7 +235,8 @@ class UserRepository {
     private fun ResultRow.toApiKey() = ApiKey(
         id = this[ApiKeys.id],
         apiKeyHash = this[ApiKeys.apiKeyHash],
-        remainingUsages = this[ApiKeys.remainingUsages],
+        subscriptionUsages = this[ApiKeys.subscriptionsUsages],
+        consumableUsages = this[ApiKeys.consumableUsages],
         isActive = this[ApiKeys.isActive]
     )
 }

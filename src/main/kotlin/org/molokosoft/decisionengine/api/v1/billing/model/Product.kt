@@ -14,7 +14,7 @@ enum class Product(
     DECISION_PACK_15(
         productId = "decisionengine_pack_15",
         type = ProductType.CONSUMABLE,
-        usageLimit = 3
+        usageLimit = 15
     )
 }
 

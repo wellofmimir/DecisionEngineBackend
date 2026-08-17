@@ -2,6 +2,7 @@ package org.molokosoft.decisionengine.api.v1.decision
 
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.principal
 import io.ktor.server.plugins.ratelimit.RateLimitName
 import io.ktor.server.plugins.ratelimit.rateLimit
 import io.ktor.server.response.*
@@ -13,22 +14,67 @@ import org.molokosoft.decisionengine.api.v1.decision.model.responses.DecisionAna
 import org.molokosoft.decisionengine.api.v1.decision.model.responses.SafetyClassificationResponse
 import org.molokosoft.decisionengine.api.v1.model.ApiError
 import org.molokosoft.decisionengine.api.v1.model.ApiResponse
+import org.molokosoft.decisionengine.authentication.ApiKeyGenerator
+import org.molokosoft.decisionengine.authentication.ApiKeyHasher
 import org.molokosoft.decisionengine.authentication.AuthenticationNames
+import org.molokosoft.decisionengine.authentication.principals.ApiKeyPrincipal
 import org.molokosoft.decisionengine.extensions.receiveValidated
+import org.molokosoft.decisionengine.repositories.users.UserRepository
 import org.molokosoft.decisionengine.services.decision.DecisionService
 
 fun Route.decisionRoutes(
-    decisionService: DecisionService
+    decisionService: DecisionService,
+    userRepository: UserRepository
 ) {
     route("/decision") {
         rateLimit(RateLimitName("decision")) {
             authenticate(AuthenticationNames.API_KEY) {
                 post("/analyze") {
 
-                    val request = call.receiveValidated<DecisionAnalysisRequest>()
+                    val request =
+                        call.receiveValidated<DecisionAnalysisRequest>()
+
+                    val principal =
+                        call.principal<ApiKeyPrincipal>()
+
+                    if (principal == null) {
+                        call.respond(
+                            status = HttpStatusCode.Unauthorized,
+                            message = ApiResponse(
+                                success = false,
+                                data = ApiError(
+                                    code = HttpStatusCode.InternalServerError.toString(),
+                                    message = "Unauthorized."
+                                )
+                            )
+                        )
+
+                        return@post
+                    }
+
+                    val consumedUsage =
+                        userRepository.consumeUsage(principal.apiKeyHash)
+
+                    if (consumedUsage == null) {
+                        call.respond(
+                            status = HttpStatusCode.PaymentRequired,
+                            message = ApiResponse(
+                                success = false,
+                                data = ApiError(
+                                    code = HttpStatusCode.PaymentRequired.toString(),
+                                    message = "Payment required."
+                                )
+                            )
+                        )
+
+                        return@post
+                    }
+
                     val result = decisionService.analyze(request)
 
                     if (result == null) {
+                        userRepository.restoreUsage(principal.apiKeyHash, consumedUsage)
+
                         call.respond(
                             status = HttpStatusCode.InternalServerError,
                             message = ApiResponse(
