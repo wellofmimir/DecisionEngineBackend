@@ -20,7 +20,7 @@ class EMailClient(
         val request = Request.Builder()
             .url("https://api.brevo.com/v3/smtp/email")
             .addHeader("Content-Type", "application/json")
-            .addHeader("api-key", "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")
+            .addHeader("api-key", "")
             .post(body)
             .build()
 
